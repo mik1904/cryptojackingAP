@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from IPython import embed
 import io
 import gzip
+from socketserver import ThreadingMixIn
 
 hostName=''
 hostPort=9090
@@ -44,7 +45,7 @@ class MyServer(BaseHTTPRequestHandler):
             #with urllib.request.urlopen(new_req) as response:
             with opener.open(new_req,timeout=7) as response:
                 if response.info().get('Content-Encoding') == 'gzip':
-                    buf = io.BytesIO( response.read())
+                    buf = io.BytesIO(response.read())
                     f = gzip.GzipFile(fileobj=buf)
                     the_page = f.read()
                 else:
@@ -61,9 +62,6 @@ class MyServer(BaseHTTPRequestHandler):
                         html.body.insert(-1,script2)
                         the_page = bytes(str(html).encode("utf-8"))
                         print("Script injected.")
-                        with open("debugging_body.txt","wb+") as fout:
-                            fout.write(the_page)
-                            fout.write(b'\n********END**********\n')
                     else:
                         print("NO injection for: {}".format(URL))
 
@@ -72,13 +70,17 @@ class MyServer(BaseHTTPRequestHandler):
         except urllib.error.HTTPError as e:
             print("Error for {0}: {1} -> {2}".format(URL,e.code,e.msg))
 
-myServer = HTTPServer((hostName, hostPort), MyServer)
-print(time.asctime(), "Server Starts - %s:%s" % (hostName, hostPort))
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+        """Handle requests in a separate thread."""
 
-try:
-    myServer.serve_forever()
-except KeyboardInterrupt:
-    pass
+if __name__ == '__main__':
+    myServer = ThreadedHTTPServer((hostName, hostPort), MyServer)
+    print(time.asctime(), "Server Starts - %s:%s" % (hostName, hostPort))
 
-myServer.server_close()
-print(time.asctime(), "Server Stops - %s:%s" % (hostName, hostPort))
+    try:
+        myServer.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+    myServer.server_close()
+    print(time.asctime(), "Server Stops - %s:%s" % (hostName, hostPort))

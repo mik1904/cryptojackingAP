@@ -20,7 +20,7 @@ wlan1 is the interface where the access point is running and users conenct.
 After running the script, request coming in at wlan1, with destination port 80 (HTTP), are forwarded 
 to the localhost on port 9090. Now is time to run the python script:
 ``` 
-python3 iptables_maliciousAP.sh
+$ python3 iptables_maliciousAP.sh
 ```
 The latter, receives the requests forwarded by the iptables, retrieves the requested data, 
 injects the cryptomining code (if possible) and returns everything to the client. 

@@ -25,3 +25,7 @@ $ python3 malicious_webserver.py
 The latter, receives the requests forwarded by the iptables, retrieves the requested data, 
 injects the cryptomining code (if possible) and returns everything to the client. 
 
+# Disclaimer
+Made for fun and no profit. Only use this tool for education, research, or in the course of approved operations.
+
+

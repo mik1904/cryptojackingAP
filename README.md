@@ -15,7 +15,7 @@ $ sudo iptables_maliciousAP.sh
 ```
 Please note that you might have to change the network interface's name accordingly. 
 In this example, wlan0 is the interfaces that is connecting to the internet while 
-wlan1 is the interface where the access point is running and users conenct.
+wlan1 is the interface where the access point is running and users connect to.
 
 After running the script, request coming in at wlan1, with destination port 80 (HTTP), are forwarded 
 to the localhost on port 9090. Now is time to run the python script:
